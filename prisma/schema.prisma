@@ -1,0 +1,335 @@
+// Central de Agendamento de Anamneses – Eccoprime
+// Todos os instantes são armazenados em UTC (timestamptz). O fuso de negócio é America/Recife.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PSYCHOLOGIST
+  COORDINATION
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum CalendarTarget {
+  PSYCHOLOGIST
+  TEAM
+}
+
+enum ConnectionKind {
+  PSYCHOLOGIST
+  TEAM
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  CANCELLED
+  SKIPPED
+}
+
+enum NotificationType {
+  BOOKING_FAMILY
+  BOOKING_PSYCHOLOGIST
+  BOOKING_TEAM
+  CANCELLATION_FAMILY
+  CANCELLATION_PSYCHOLOGIST
+  RESCHEDULE_FAMILY
+  REMINDER_FAMILY
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  deletedAt    DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  psychologist Psychologist?
+  auditLogs    AuditLog[]
+
+  @@index([role, active])
+}
+
+model Psychologist {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  name      String
+  email     String
+  phone     String?
+  active    Boolean   @default(true)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  segments     PsychologistSegment[]
+  rules        AvailabilityRule[]
+  slots        AvailabilitySlot[]
+  appointments Appointment[]
+  connections  GoogleCalendarConnection[]
+  /// Outras psicólogas cujos dados administrativos esta pode ver (autorizado pelo admin).
+  canViewOthers Boolean                  @default(false)
+
+  @@index([active])
+}
+
+model SchoolSegment {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String?
+  sortOrder   Int       @default(0)
+  active      Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  psychologists PsychologistSegment[]
+  rules         AvailabilityRule[]
+  slots         AvailabilitySlot[]
+  appointments  Appointment[]
+}
+
+model PsychologistSegment {
+  psychologistId String
+  segmentId      String
+  createdAt      DateTime @default(now())
+
+  psychologist Psychologist  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  segment      SchoolSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@id([psychologistId, segmentId])
+  @@index([segmentId])
+}
+
+/// Regra recorrente: gera AvailabilitySlot entre startDate e endDate.
+model AvailabilityRule {
+  id              String   @id @default(cuid())
+  psychologistId  String
+  segmentId       String
+  startDate       DateTime @db.Date
+  endDate         DateTime @db.Date
+  /// 0 = domingo ... 6 = sábado
+  weekdays        Int[]
+  /// Minutos desde 00:00 (horário local de Recife)
+  startMinute     Int
+  endMinute       Int
+  durationMinutes Int
+  gapMinutes      Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  psychologist Psychologist  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  segment      SchoolSegment @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  slots        AvailabilitySlot[]
+
+  @@index([psychologistId, active])
+}
+
+model AvailabilitySlot {
+  id             String     @id @default(cuid())
+  psychologistId String
+  segmentId      String
+  ruleId         String?
+  startsAt       DateTime   @db.Timestamptz(3)
+  endsAt         DateTime   @db.Timestamptz(3)
+  status         SlotStatus @default(AVAILABLE)
+  blockReason    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  psychologist Psychologist     @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  segment      SchoolSegment    @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  rule         AvailabilityRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  // Mesmo psicóloga não pode ter dois horários começando no mesmo instante.
+  // A proteção contra sobreposição parcial é feita por constraint EXCLUDE (ver migration).
+  @@unique([psychologistId, startsAt])
+  @@index([segmentId, status, startsAt])
+  @@index([psychologistId, startsAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  /// Identificador legível e único exibido à família (ex.: ANA-7K3F9Q2M)
+  code           String            @unique
+  slotId         String
+  psychologistId String
+  segmentId      String
+  startsAt       DateTime          @db.Timestamptz(3)
+  endsAt         DateTime          @db.Timestamptz(3)
+  status         AppointmentStatus @default(CONFIRMED)
+
+  guardianName   String
+  studentName    String
+  phone          String
+  email          String
+
+  consentAt      DateTime
+  consentVersion String
+  consentIp      String?
+
+  cancelledAt    DateTime?
+  cancelReason   String?
+  cancelledById  String?
+  rescheduledFromId String?
+  reminderSentAt DateTime?
+  /// Para retenção/anonimização LGPD
+  anonymizedAt   DateTime?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  slot         AvailabilitySlot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  psychologist Psychologist     @relation(fields: [psychologistId], references: [id], onDelete: Restrict)
+  segment      SchoolSegment    @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  events       GoogleCalendarEvent[]
+  notifications Notification[]
+
+  // Índice único PARCIAL (slotId WHERE status IN ('CONFIRMED','COMPLETED','NO_SHOW'))
+  // é criado na migration SQL – o Prisma não expressa índices parciais.
+  @@index([slotId])
+  @@index([psychologistId, startsAt])
+  @@index([segmentId, startsAt])
+  @@index([status, startsAt])
+  @@index([email])
+}
+
+model GoogleCalendarConnection {
+  id             String         @id @default(cuid())
+  kind           ConnectionKind
+  /// Preenchido quando kind = PSYCHOLOGIST; nulo para a agenda geral da equipe.
+  psychologistId String?
+  googleEmail    String
+  /// Refresh token criptografado (AES-256-GCM, formato iv:tag:ciphertext em base64)
+  refreshTokenEnc String
+  /// ID do calendário que recebe os eventos ("primary" ou id específico)
+  calendarId     String         @default("primary")
+  active         Boolean        @default(true)
+  lastError      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  psychologist Psychologist? @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, psychologistId])
+}
+
+model GoogleCalendarEvent {
+  id            String         @id @default(cuid())
+  appointmentId String
+  target        CalendarTarget
+  /// ID determinístico enviado ao Google (evita duplicados nas retentativas)
+  googleEventId String
+  calendarId    String?
+  /// Psicóloga dona da agenda onde o evento (target PSYCHOLOGIST) está hoje. Permite remover da agenda antiga numa remarcação.
+  psychologistId String?
+  status        SyncStatus     @default(PENDING)
+  attempts      Int            @default(0)
+  lastError     String?
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime?
+  syncedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@unique([appointmentId, target])
+  @@index([status, nextAttemptAt])
+}
+
+model Notification {
+  id            String              @id @default(cuid())
+  appointmentId String?
+  type          NotificationType
+  channel       NotificationChannel @default(EMAIL)
+  toAddress     String
+  subject       String
+  body          String
+  status        NotificationStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  lastError     String?
+  scheduledFor  DateTime            @default(now())
+  sentAt        DateTime?
+  /// Evita duplicidade (ex.: "REMINDER_FAMILY:<appointmentId>")
+  dedupeKey     String?             @unique
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([status, scheduledFor])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  /// "email:<email>" ou "ip:<ip>"
+  key       String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

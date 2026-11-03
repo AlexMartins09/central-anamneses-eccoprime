@@ -1,0 +1,81 @@
+# Render Blueprint – Central de Agendamento de Anamneses (Eccoprime)
+# Uso: Render Dashboard > New > Blueprint > selecione o repositório.
+# Valores marcados `sync: false` são pedidos no painel (não ficam no Git).
+# Confira os nomes dos planos (plan:) no painel do Render: eles mudam com o tempo.
+
+databases:
+  - name: anamneses-db
+    databaseName: anamneses
+    user: anamneses
+    plan: basic-256mb        # use plano pago: o gratuito expira e não garante backups
+    postgresMajorVersion: "16"
+    ipAllowList: []          # só acesso interno (Internal Database URL). Para acesso externo, adicione seu IP.
+
+services:
+  # ---------------------------------------------------------------- Aplicação
+  - type: web
+    name: central-anamneses
+    runtime: node
+    plan: starter
+    region: oregon           # ajuste para a mesma região do banco
+    buildCommand: npm ci --include=dev && npm run build
+    # A cada inicialização: aplica migrations, garante segmentos/admin (idempotente) e sobe o app.
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: anamneses-db
+          property: connectionString
+      - key: APP_URL
+        sync: false          # ex.: https://agendamento.seudominio.com.br
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true  # NÃO altere depois: tokens do Google já gravados ficariam ilegíveis
+      - key: CRON_SECRET
+        generateValue: true
+      # Primeiro administrador: criado automaticamente na 1ª subida (idempotente; não sobrescreve se já existir)
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_NAME
+        value: Administrador
+      - key: SEED_ADMIN_PASSWORD
+        sync: false        # mín. 10 caracteres, com maiúscula, minúscula e número
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
+  # ---------------------------------------------------------------- Worker periódico
+  # Reenvia sincronizações do Google que falharam, envia e-mails/lembretes e roda a retenção LGPD.
+  - type: cron
+    name: central-anamneses-worker
+    runtime: node
+    plan: starter
+    region: oregon
+    schedule: "*/5 * * * *"
+    buildCommand: "true"
+    startCommand: >-
+      curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/process"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        fromService:
+          type: web
+          name: central-anamneses
+          envVarKey: CRON_SECRET

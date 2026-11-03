@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+next-env.d.ts
+backups/
+.pgdata/
+coverage
+.claude/
+*.log
+*.tmp.*
+.edgeprof/
