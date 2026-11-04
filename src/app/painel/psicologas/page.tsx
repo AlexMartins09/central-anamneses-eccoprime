@@ -5,7 +5,7 @@ import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from
 import { ActionForm } from "@/components/action-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, Input } from "@/components/ui/form";
-import { createPsychologistAction, resetUserPasswordAction, updatePsychologistAction } from "@/server/admin-actions";
+import { createPsychologistAction, deletePsychologistAction, resetUserPasswordAction, updatePsychologistAction } from "@/server/admin-actions";
 
 export const metadata = { title: "Psicólogas" };
 
@@ -103,6 +103,17 @@ export default async function PsychologistsPage() {
                     <Input name="password" type="password" autoComplete="new-password" placeholder="Nova senha" required />
                     <SubmitButton size="sm" variant="outline">Redefinir</SubmitButton>
                   </ActionForm>
+                  <details className="rounded-md bg-secondary/50 p-4 lg:col-start-3">
+                    <summary className="cursor-pointer text-sm font-medium text-destructive">Excluir psicóloga</summary>
+                    <ActionForm action={deletePsychologistAction} className="mt-3 space-y-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <p className="text-xs text-muted-foreground">
+                        O acesso é encerrado, horários livres futuros são removidos e a conexão com o Google é apagada.
+                        Só é possível se não houver agendamentos futuros. O histórico é mantido.
+                      </p>
+                      <SubmitButton size="sm" variant="destructive" pendingText="Excluindo…">Confirmar exclusão</SubmitButton>
+                    </ActionForm>
+                  </details>
                 </div>
               </details>
             </Card>

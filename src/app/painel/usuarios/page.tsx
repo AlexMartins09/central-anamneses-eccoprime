@@ -2,11 +2,17 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { fmtDateTime } from "@/lib/time";
 import { PageHeader } from "@/components/page-header";
-import { Badge, Card, CardContent, CardHeader, CardTitle, Table, Td, Th } from "@/components/ui/card";
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActionForm } from "@/components/action-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, Input, Select } from "@/components/ui/form";
-import { createStaffUserAction, resetUserPasswordAction, setUserActiveAction } from "@/server/admin-actions";
+import {
+  createStaffUserAction,
+  deleteStaffUserAction,
+  resetUserPasswordAction,
+  setUserActiveAction,
+  updateStaffUserAction,
+} from "@/server/admin-actions";
 
 export const metadata = { title: "Usuários" };
 const ROLE = { ADMIN: "Administrador", PSYCHOLOGIST: "Psicóloga", COORDINATION: "Atendimento / Coordenação" } as const;
@@ -34,43 +40,80 @@ export default async function UsersPage() {
           </ActionForm>
         </CardContent>
       </Card>
-      <Card>
-        <Table>
-          <thead>
-            <tr><Th>Nome</Th><Th>E-mail</Th><Th>Perfil</Th><Th>Último acesso</Th><Th>Situação</Th><Th>Ações</Th></tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <Td className="font-medium">{u.name}</Td>
-                <Td>{u.email}</Td>
-                <Td>{ROLE[u.role]}</Td>
-                <Td>{u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : "—"}</Td>
-                <Td><Badge variant={u.active ? "success" : "muted"}>{u.active ? "Ativo" : "Inativo"}</Badge></Td>
-                <Td>
-                  {u.role !== "PSYCHOLOGIST" && u.id !== me.id && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <ActionForm action={setUserActiveAction}>
+
+      <div className="space-y-3">
+        {users.map((u) => {
+          const isMe = u.id === me.id;
+          const editable = u.role !== "PSYCHOLOGIST";
+          return (
+            <Card key={u.id}>
+              <details>
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-5">
+                  <div>
+                    <p className="font-semibold">{u.name}{isMe && <span className="ml-2 text-xs font-normal text-muted-foreground">(você)</span>}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {u.email} · {u.lastLoginAt ? `último acesso ${fmtDateTime(u.lastLoginAt)}` : "nunca acessou"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge>{ROLE[u.role]}</Badge>
+                    <Badge variant={u.active ? "success" : "muted"}>{u.active ? "Ativo" : "Inativo"}</Badge>
+                    <span className="text-xs font-medium text-primary">{editable ? "Editar" : ""}</span>
+                  </div>
+                </summary>
+                {editable ? (
+                  <div className="grid gap-6 border-t p-5 lg:grid-cols-3">
+                    <ActionForm action={updateStaffUserAction} className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
+                      <input type="hidden" name="id" value={u.id} />
+                      <Field label="Nome"><Input name="name" defaultValue={u.name} required /></Field>
+                      <Field label="E-mail"><Input name="email" type="email" defaultValue={u.email} required /></Field>
+                      <Field label="Perfil" hint={isMe ? "Você não pode alterar o próprio perfil." : undefined}>
+                        <Select name="role" defaultValue={u.role} disabled={isMe}>
+                          <option value="COORDINATION">Atendimento / Coordenação</option>
+                          <option value="ADMIN">Administrador</option>
+                        </Select>
+                      </Field>
+                      <div className="flex items-end">
+                        <SubmitButton size="sm">Salvar alterações</SubmitButton>
+                      </div>
+                    </ActionForm>
+
+                    <div className="space-y-4">
+                      <ActionForm action={resetUserPasswordAction} className="space-y-3 rounded-md bg-secondary/50 p-4">
                         <input type="hidden" name="id" value={u.id} />
-                        <input type="hidden" name="active" value={String(!u.active)} />
-                        <SubmitButton size="sm" variant="outline">{u.active ? "Desativar" : "Reativar"}</SubmitButton>
+                        <p className="text-sm font-medium">Redefinir senha</p>
+                        <Input name="password" type="password" autoComplete="new-password" placeholder="Nova senha" required />
+                        <SubmitButton size="sm" variant="outline">Redefinir</SubmitButton>
                       </ActionForm>
-                      <details>
-                        <summary className="cursor-pointer text-xs font-medium text-primary">Nova senha</summary>
-                        <ActionForm action={resetUserPasswordAction} className="mt-2 flex gap-2">
-                          <input type="hidden" name="id" value={u.id} />
-                          <Input name="password" type="password" autoComplete="new-password" className="h-8 w-40" required />
-                          <SubmitButton size="sm">OK</SubmitButton>
-                        </ActionForm>
-                      </details>
+
+                      {!isMe && (
+                        <div className="space-y-3 rounded-md bg-secondary/50 p-4">
+                          <ActionForm action={setUserActiveAction}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <input type="hidden" name="active" value={String(!u.active)} />
+                            <SubmitButton size="sm" variant="outline">{u.active ? "Desativar acesso" : "Reativar acesso"}</SubmitButton>
+                          </ActionForm>
+                          <details>
+                            <summary className="cursor-pointer text-xs font-medium text-destructive">Excluir usuário</summary>
+                            <ActionForm action={deleteStaffUserAction} className="mt-2 space-y-2">
+                              <input type="hidden" name="id" value={u.id} />
+                              <p className="text-xs text-muted-foreground">
+                                O acesso é encerrado e o usuário some desta lista. O histórico de auditoria é mantido.
+                              </p>
+                              <SubmitButton size="sm" variant="destructive" pendingText="Excluindo…">Confirmar exclusão</SubmitButton>
+                            </ActionForm>
+                          </details>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Card>
+                  </div>
+                ) : null}
+              </details>
+            </Card>
+          );
+        })}
+        {users.length === 0 && <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>}
+      </div>
     </>
   );
 }
