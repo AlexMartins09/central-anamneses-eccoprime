@@ -90,6 +90,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 </Field>
                 <Field label="Responsável"><Input name="guardianName" required /></Field>
                 <Field label="Aluno(a)"><Input name="studentName" required /></Field>
+                <Field label="Turma / série"><Input name="studentClass" maxLength={40} placeholder="Ex.: 7º ano B" /></Field>
                 <Field label="Telefone"><Input name="phone" required /></Field>
                 <Field label="E-mail"><Input name="email" type="email" required /></Field>
                 <SubmitButton className="sm:w-fit">Criar agendamento</SubmitButton>
@@ -108,7 +109,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           <CardContent className="space-y-6">
             <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
               {[
-                ["Segmento", detail.segment.name], ["Psicóloga", detail.psychologist.name],
+                ["Segmento", detail.segment.name], ["Turma / série", detail.studentClass ?? "—"], ["Psicóloga", detail.psychologist.name],
                 ["Data e horário", `${fmtDate(detail.startsAt)} · ${fmtTime(detail.startsAt)} às ${fmtTime(detail.endsAt)}`],
                 ["Telefone", formatPhone(detail.phone)], ["E-mail", detail.email],
                 ["Criado em", fmtDateTime(detail.createdAt)],
@@ -145,6 +146,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                   <input type="hidden" name="appointmentId" value={detail.id} />
                   <Field label="Responsável"><Input name="guardianName" defaultValue={detail.guardianName} required /></Field>
                   <Field label="Aluno(a)"><Input name="studentName" defaultValue={detail.studentName} required /></Field>
+                  <Field label="Turma / série"><Input name="studentClass" defaultValue={detail.studentClass ?? ""} maxLength={40} /></Field>
                   <Field label="Telefone"><Input name="phone" defaultValue={detail.phone} required /></Field>
                   <Field label="E-mail"><Input name="email" type="email" defaultValue={detail.email} required /></Field>
                   <Field label="Situação">
@@ -185,7 +187,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
         <Card>
           <Table>
             <thead>
-              <tr><Th>Aluno</Th><Th>Responsável</Th><Th>Segmento</Th><Th>Psicóloga</Th><Th>Data</Th><Th>Horário</Th><Th>Status</Th><Th>Agenda Google</Th><Th /></tr>
+              <tr><Th>Aluno</Th><Th>Turma</Th><Th>Responsável</Th><Th>Segmento</Th><Th>Psicóloga</Th><Th>Data</Th><Th>Horário</Th><Th>Status</Th><Th>Agenda Google</Th><Th /></tr>
             </thead>
             <tbody>
               {rows.map((a) => {
@@ -193,6 +195,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 return (
                   <tr key={a.id} className={a.status === "CANCELLED" ? "opacity-60" : ""}>
                     <Td className="font-medium">{a.studentName}</Td>
+                    <Td className="whitespace-nowrap">{a.studentClass ?? "—"}</Td>
                     <Td>{a.guardianName}</Td>
                     <Td>{a.segment.name}</Td>
                     <Td>{a.psychologist.name}</Td>

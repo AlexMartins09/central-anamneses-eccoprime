@@ -14,6 +14,7 @@ export function buildEventBody(a: Full): EventBody {
     summary: `Anamnese – ${a.segment.name}`,
     description: [
       `Aluno(a): ${a.studentName}`,
+      ...(a.studentClass ? [`Turma: ${a.studentClass}`] : []),
       `Responsável: ${a.guardianName}`,
       `Contato: ${a.phone}`,
       `Psicóloga: ${a.psychologist.name}`,

@@ -29,7 +29,7 @@ export default async function PrivacyPage() {
         <section>
           <h2>2. Quais dados coletamos</h2>
           <ul>
-            <li>Nome completo do responsável e do aluno;</li>
+            <li>Nome completo do responsável e do aluno, e a turma/série do aluno;</li>
             <li>Telefone/WhatsApp e e-mail de contato;</li>
             <li>Segmento escolar, data e horário escolhidos;</li>
             <li>Registro técnico do aceite desta política (data/hora e endereço IP).</li>

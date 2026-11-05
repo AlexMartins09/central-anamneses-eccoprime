@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { bookSlot } from "@/lib/booking";
 import { run, str, type ActionState } from "@/lib/action";
 import { clientIp, isRateLimited, recordAttempt } from "@/lib/rate-limit";
-import { emailSchema, idSchema, nameSchema, phoneSchema } from "@/lib/validation";
+import { classSchema, emailSchema, idSchema, nameSchema, phoneSchema } from "@/lib/validation";
 import { syncAppointmentNow } from "@/lib/calendar-sync";
 import { processNotifications } from "@/lib/notifications";
 import { mailConfigured } from "@/lib/mail";
@@ -18,6 +18,7 @@ const schema = z.object({
   segmentId: idSchema,
   guardianName: nameSchema("responsável"),
   studentName: nameSchema("aluno"),
+  studentClass: classSchema,
   phone: phoneSchema,
   email: emailSchema,
   consent: z.literal("on", { message: "É necessário aceitar a Política de Privacidade para continuar." }),
@@ -43,6 +44,7 @@ export async function createBookingAction(_prev: ActionState, fd: FormData): Pro
       segmentId: str(fd, "segmentId"),
       guardianName: str(fd, "guardianName"),
       studentName: str(fd, "studentName"),
+      studentClass: str(fd, "studentClass"),
       phone: str(fd, "phone"),
       email: str(fd, "email"),
       consent: str(fd, "consent"),
@@ -53,6 +55,7 @@ export async function createBookingAction(_prev: ActionState, fd: FormData): Pro
       segmentId: d.segmentId,
       guardianName: d.guardianName,
       studentName: d.studentName,
+      studentClass: d.studentClass,
       phone: d.phone,
       email: d.email,
       consentIp: ip === "unknown" ? null : ip,
@@ -78,6 +81,7 @@ export async function createBookingAction(_prev: ActionState, fd: FormData): Pro
         code: full.code,
         guardianName: full.guardianName,
         studentName: full.studentName,
+        studentClass: full.studentClass ?? "",
         phone: formatPhone(full.phone),
         email: full.email,
         segment: full.segment.name,

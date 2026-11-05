@@ -12,7 +12,7 @@ import { assertCanManageAppointment } from "@/lib/rbac";
 import { getSettings } from "@/lib/settings";
 import { retryEvent, syncAppointmentNow } from "@/lib/calendar-sync";
 import { processNotifications } from "@/lib/notifications";
-import { emailSchema, idSchema, nameSchema, phoneSchema } from "@/lib/validation";
+import { emailSchema, idSchema, nameSchema, optionalClassSchema, phoneSchema } from "@/lib/validation";
 
 function refresh() {
   for (const p of ["/painel", "/painel/agendamentos", "/painel/agenda", "/painel/disponibilidade"]) revalidatePath(p);
@@ -65,6 +65,7 @@ export async function rescheduleAppointmentAction(_p: ActionState, fd: FormData)
 const editSchema = z.object({
   guardianName: nameSchema("responsável"),
   studentName: nameSchema("aluno"),
+  studentClass: optionalClassSchema,
   phone: phoneSchema,
   email: emailSchema,
   status: z.enum(["CONFIRMED", "COMPLETED", "NO_SHOW"]),
@@ -75,7 +76,7 @@ export async function updateAppointmentAction(_p: ActionState, fd: FormData): Pr
     const { me, appt } = await loadManaged(fd);
     if (appt.status === "CANCELLED") throw new ActionError("Agendamentos cancelados não podem ser editados.");
     const d = editSchema.parse({
-      guardianName: str(fd, "guardianName"), studentName: str(fd, "studentName"),
+      guardianName: str(fd, "guardianName"), studentName: str(fd, "studentName"), studentClass: str(fd, "studentClass"),
       phone: str(fd, "phone"), email: str(fd, "email"), status: str(fd, "status"),
     });
     await prisma.$transaction([
@@ -98,7 +99,8 @@ export async function createAppointmentByStaffAction(_p: ActionState, fd: FormDa
     const slot = await prisma.availabilitySlot.findUnique({ where: { id: slotId } });
     if (!slot) throw new ActionError("Horário não encontrado.");
     const d = editSchema.omit({ status: true }).parse({
-      guardianName: str(fd, "guardianName"), studentName: str(fd, "studentName"), phone: str(fd, "phone"), email: str(fd, "email"),
+      guardianName: str(fd, "guardianName"), studentName: str(fd, "studentName"), studentClass: str(fd, "studentClass"),
+      phone: str(fd, "phone"), email: str(fd, "email"),
     });
     const appt = await bookSlot({ slotId, segmentId: slot.segmentId, ...d, byStaff: true });
     await audit({ userId: me.id, action: "APPOINTMENT_CREATED_BY_STAFF", entityType: "Appointment", entityId: appt.id, details: { code: appt.code } });

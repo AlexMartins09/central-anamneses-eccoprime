@@ -15,6 +15,7 @@ export async function runRetention(now = new Date()) {
     data: {
       guardianName: "Dado anonimizado",
       studentName: "Dado anonimizado",
+      studentClass: null,
       phone: "",
       email: "anonimizado@invalid",
       consentIp: null,

@@ -15,7 +15,7 @@ export default async function SchedulePage() {
   const segments = await prisma.schoolSegment.findMany({
     where: { active: true, deletedAt: null, psychologists: { some: { psychologist: { active: true, deletedAt: null } } } },
     orderBy: { sortOrder: "asc" },
-    select: { id: true, name: true, description: true },
+    select: { id: true, slug: true, name: true, description: true },
   });
   const today = todayKey();
 

@@ -43,6 +43,7 @@ export type BookInput = {
   segmentId: string;
   guardianName: string;
   studentName: string;
+  studentClass?: string | null;
   phone: string;
   email: string;
   consentIp?: string | null;
@@ -104,6 +105,7 @@ export async function bookSlot(input: BookInput): Promise<Appointment> {
           endsAt: slot.endsAt,
           guardianName: input.guardianName,
           studentName: input.studentName,
+          studentClass: input.studentClass || null,
           phone: input.phone,
           email: input.email.toLowerCase(),
           consentAt: now,

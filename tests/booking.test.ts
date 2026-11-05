@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../src/lib/db";
 import { BookingError, bookSlot, cancelAppointment, rescheduleAppointment } from "../src/lib/booking";
+import { buildEventBody } from "../src/lib/calendar-sync";
 import { family, makeSlot, makeWorld, resetDb } from "./helpers";
 
 beforeEach(resetDb);
@@ -25,6 +26,21 @@ describe("reserva atômica", () => {
 
     expect(await prisma.appointment.count()).toBe(1);
     expect((await prisma.availabilitySlot.findUniqueOrThrow({ where: { id: slot.id } })).status).toBe("BOOKED");
+  });
+
+  it("guarda a turma do aluno e a inclui na descrição do evento do Google (só quando informada)", async () => {
+    const { segment, psychologists } = await makeWorld();
+    const include = { psychologist: true, segment: true } as const;
+
+    const withClass = await bookSlot({ slotId: (await makeSlot(psychologists[0].id, segment.id, 72)).id, segmentId: segment.id, ...family(1), studentClass: "7º ano B" });
+    const a = await prisma.appointment.findUniqueOrThrow({ where: { id: withClass.id }, include });
+    expect(a.studentClass).toBe("7º ano B");
+    expect(buildEventBody(a).description).toContain("Turma: 7º ano B");
+
+    const without = await bookSlot({ slotId: (await makeSlot(psychologists[0].id, segment.id, 96)).id, segmentId: segment.id, ...family(2) });
+    const b = await prisma.appointment.findUniqueOrThrow({ where: { id: without.id }, include });
+    expect(b.studentClass).toBeNull();
+    expect(buildEventBody(b).description).not.toContain("Turma:");
   });
 
   it("cria na mesma transação os eventos do Google (psicóloga + equipe) e os e-mails", async () => {

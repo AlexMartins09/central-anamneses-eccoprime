@@ -28,9 +28,9 @@ export async function GET(req: Request) {
     take: 20000,
   });
 
-  const header = ["Código", "Aluno", "Responsável", "Telefone", "E-mail", "Segmento", "Psicóloga", "Data", "Horário", "Status", "Criado em"];
+  const header = ["Código", "Aluno", "Turma", "Responsável", "Telefone", "E-mail", "Segmento", "Psicóloga", "Data", "Horário", "Status", "Criado em"];
   const lines = rows.map((a) =>
-    [a.code, a.studentName, a.guardianName, formatPhone(a.phone), a.email, a.segment.name, a.psychologist.name,
+    [a.code, a.studentName, a.studentClass ?? "", a.guardianName, formatPhone(a.phone), a.email, a.segment.name, a.psychologist.name,
      fmtDate(a.startsAt), `${fmtTime(a.startsAt)}-${fmtTime(a.endsAt)}`, APPOINTMENT_STATUS_LABEL[a.status], fmtDate(a.createdAt)]
       .map(cell).join(";"),
   );

@@ -8,11 +8,12 @@ import { Alert } from "@/components/ui/card";
 import { MonthCalendar } from "./month-calendar";
 import { createBookingAction } from "@/server/booking-actions";
 import { cn } from "@/lib/utils";
+import { classSuggestions } from "@/lib/classes";
 
-type Segment = { id: string; name: string; description: string | null };
+type Segment = { id: string; slug: string; name: string; description: string | null };
 type Slot = { id: string; start: string; end: string; psychologist: string };
 type Result = {
-  code: string; guardianName: string; studentName: string; phone: string; email: string;
+  code: string; guardianName: string; studentName: string; studentClass: string; phone: string; email: string;
   segment: string; psychologist: string; date: string; longDate: string; time: string; emailEnabled: boolean;
 };
 
@@ -36,7 +37,7 @@ export function BookingWizard({
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [form, setForm] = useState({ guardianName: "", studentName: "", phone: "", email: "", consent: false });
+  const [form, setForm] = useState({ guardianName: "", studentName: "", studentClass: "", phone: "", email: "", consent: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState(createBookingAction, {});
@@ -112,6 +113,7 @@ export function BookingWizard({
     const words = (v: string) => v.trim().split(/\s+/).filter(Boolean).length;
     if (words(form.guardianName) < 2) e.guardianName = "Informe nome e sobrenome do responsável.";
     if (words(form.studentName) < 2) e.studentName = "Informe nome e sobrenome do aluno.";
+    if (form.studentClass.trim().length < 2) e.studentClass = "Informe a turma ou série do aluno (ex.: 7º ano B).";
     const digits = form.phone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
     if (!/^[1-9]{2}9?\d{8}$/.test(digits)) e.phone = "Informe o DDD e o número (ex.: 81 99999-0000).";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) e.email = "Informe um e-mail válido.";
@@ -242,6 +244,13 @@ export function BookingWizard({
             <Fld id="studentName" label="Nome completo do aluno" error={errors.studentName}>
               <Input id="studentName" value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} className="h-12 text-base" />
             </Fld>
+            <Fld id="studentClass" label="Turma / série do aluno" error={errors.studentClass}>
+              <Input id="studentClass" list="student-class-options" maxLength={40} placeholder={segment?.slug === "fundamental-2" ? "Ex.: 7º ano B ou 2ª série do Médio" : "Ex.: 3º ano B"}
+                value={form.studentClass} onChange={(e) => setForm({ ...form, studentClass: e.target.value })} className="h-12 text-base" />
+              <datalist id="student-class-options">
+                {classSuggestions(segment?.slug ?? "").map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </Fld>
             <Fld id="phone" label="Telefone / WhatsApp" error={errors.phone}>
               <Input id="phone" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(81) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-12 text-base" />
             </Fld>
@@ -276,6 +285,7 @@ export function BookingWizard({
             {[
               ["Responsável", form.guardianName],
               ["Aluno(a)", form.studentName],
+              ["Turma / série", form.studentClass.trim()],
               ["Segmento", segment.name],
               ["Data", longDate(date)],
               ["Horário", `${slot.start} às ${slot.end}`],
@@ -292,6 +302,7 @@ export function BookingWizard({
             <input type="hidden" name="segmentId" value={segment.id} />
             <input type="hidden" name="guardianName" value={form.guardianName} />
             <input type="hidden" name="studentName" value={form.studentName} />
+            <input type="hidden" name="studentClass" value={form.studentClass} />
             <input type="hidden" name="phone" value={form.phone} />
             <input type="hidden" name="email" value={form.email} />
             <input type="hidden" name="consent" value={form.consent ? "on" : ""} />
@@ -340,6 +351,7 @@ function Success({ r, contactPhone, instructions }: { r: Result; contactPhone: s
       <dl className="divide-y rounded-xl border bg-card">
         {[
           ["Aluno(a)", r.studentName],
+          ["Turma / série", r.studentClass],
           ["Responsável", r.guardianName],
           ["Telefone", r.phone],
           ["Segmento", r.segment],

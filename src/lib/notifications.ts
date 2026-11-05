@@ -30,6 +30,7 @@ function details(a: Full): string {
   return `<table style="border-collapse:collapse;margin:12px 0">${[
     row("Código", a.code),
     row("Aluno(a)", a.studentName),
+    ...(a.studentClass ? [row("Turma / série", a.studentClass)] : []),
     row("Responsável", a.guardianName),
     row("Segmento", a.segment.name),
     row("Data", fmtLongDate(a.startsAt)),

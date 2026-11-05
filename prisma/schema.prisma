@@ -201,6 +201,8 @@ model Appointment {
 
   guardianName   String
   studentName    String
+  /// Turma/série do aluno, informada pela família (texto livre curto; nulo nos agendamentos antigos)
+  studentClass   String?
   phone          String
   email          String
 
