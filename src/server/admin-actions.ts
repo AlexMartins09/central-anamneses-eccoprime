@@ -143,6 +143,9 @@ export async function updatePsychologistAction(_p: ActionState, fd: FormData): P
       if (!active) {
         // Horários livres de quem foi desativada deixam de ser ofertados.
         await tx.availabilitySlot.updateMany({ where: { psychologistId: id, status: "AVAILABLE", startsAt: { gt: new Date() } }, data: { status: "BLOCKED", blockReason: "Psicóloga desativada" } });
+      } else if (!psy.active) {
+        // Reativada: devolve à oferta os horários que foram bloqueados pela desativação.
+        await tx.availabilitySlot.updateMany({ where: { psychologistId: id, status: "BLOCKED", blockReason: "Psicóloga desativada", startsAt: { gt: new Date() } }, data: { status: "AVAILABLE", blockReason: null } });
       }
     });
     await audit({ userId: me.id, action: "PSYCHOLOGIST_UPDATED", entityType: "Psychologist", entityId: id, details: { active, segmentIds } });

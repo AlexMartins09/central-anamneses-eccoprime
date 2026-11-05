@@ -1,6 +1,6 @@
 /**
  * Seed idempotente.
- *  - Cria os 4 segmentos iniciais e as configurações padrão.
+ *  - Cria os 3 segmentos iniciais e as configurações padrão.
  *  - Cria o administrador inicial a partir de SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
  *    (se a senha não for informada, gera uma aleatória e imprime UMA vez).
  *  - SEED_DEMO=true cria psicólogas e horários de demonstração (somente desenvolvimento).
@@ -23,8 +23,7 @@ const prisma = new PrismaClient();
 const SEGMENTS = [
   { slug: "educacao-infantil", name: "Educação Infantil", description: "Maternal e Pré-escola", sortOrder: 1 },
   { slug: "fundamental-1", name: "Ensino Fundamental 1", description: "1º ao 5º ano", sortOrder: 2 },
-  { slug: "fundamental-2", name: "Ensino Fundamental 2", description: "6º ao 9º ano", sortOrder: 3 },
-  { slug: "ensino-medio", name: "Ensino Médio", description: "1ª à 3ª série", sortOrder: 4 },
+  { slug: "fundamental-2", name: "Ensino Fundamental 2 e Médio", description: "6º ao 9º ano e 1ª à 3ª série do Ensino Médio", sortOrder: 3 },
 ];
 
 async function main() {
@@ -57,7 +56,7 @@ async function demo() {
   const segments = await prisma.schoolSegment.findMany({ orderBy: { sortOrder: "asc" } });
   const people = [
     { name: "Ana Souza", email: "ana.demo@eccoprime.test", segs: [0, 1] },
-    { name: "Bruna Lima", email: "bruna.demo@eccoprime.test", segs: [2, 3] },
+    { name: "Bruna Lima", email: "bruna.demo@eccoprime.test", segs: [2] },
   ];
   for (const p of people) {
     const user = await prisma.user.upsert({

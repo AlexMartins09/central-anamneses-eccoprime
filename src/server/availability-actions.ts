@@ -58,9 +58,19 @@ async function createRules(me: SessionUser, psychologistId: string, segmentId: s
           },
         });
         const g = await persistSlots(tx, { psychologistId, segmentId, ruleId: rule.id, times: expandRule(r) });
+        // regra sem nenhum horário gerado não fica registrada como "ativa"
+        if (g.created === 0) await tx.availabilityRule.delete({ where: { id: rule.id } });
         result.created += g.created;
         result.skippedPast += g.skippedPast;
         result.skippedConflict += g.skippedConflict;
+      }
+      if (result.created === 0) {
+        throw new ActionError(
+          result.skippedConflict
+            ? `Nenhum horário foi liberado: ${result.skippedConflict} horário(s) coincidem com horários que esta psicóloga já tem (em qualquer segmento, livres, bloqueados ou agendados). ` +
+                "Uma psicóloga não pode atender dois segmentos no mesmo horário. Escolha outros horários ou use outra psicóloga para este segmento."
+            : "Nenhum horário foi liberado: todos estão no passado.",
+        );
       }
     },
     { timeout: 30_000, maxWait: 10_000 },
@@ -72,7 +82,7 @@ async function createRules(me: SessionUser, psychologistId: string, segmentId: s
 }
 
 function summary(r: { created: number; skippedPast: number; skippedConflict: number }): ActionState {
-  const extra = [r.skippedConflict && `${r.skippedConflict} já existiam/conflitavam`, r.skippedPast && `${r.skippedPast} no passado`].filter(Boolean).join("; ");
+  const extra = [r.skippedConflict && `${r.skippedConflict} coincidiam com horários que a psicóloga já tem`, r.skippedPast && `${r.skippedPast} no passado`].filter(Boolean).join("; ");
   return { ok: true, message: `${r.created} horário(s) liberado(s)${extra ? ` (${extra} — ignorados)` : ""}.` };
 }
 

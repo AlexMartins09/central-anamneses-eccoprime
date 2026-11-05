@@ -13,10 +13,16 @@ const checkbox = "size-4 accent-[hsl(var(--primary))]";
 
 export default async function SegmentsPage() {
   await requireUser(["ADMIN"]);
-  const [segments, psychologists] = await Promise.all([
+  const [segments, psychologists, freeSlots] = await Promise.all([
     prisma.schoolSegment.findMany({ where: { deletedAt: null }, orderBy: { sortOrder: "asc" }, include: { psychologists: true } }),
     prisma.psychologist.findMany({ where: { active: true, deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.availabilitySlot.groupBy({
+      by: ["segmentId"],
+      where: { status: "AVAILABLE", startsAt: { gt: new Date() }, psychologist: { active: true, deletedAt: null } },
+      _count: { _all: true },
+    }),
   ]);
+  const freeBySegment = new Map(freeSlots.map((f) => [f.segmentId, f._count._all]));
 
   return (
     <>
@@ -35,6 +41,16 @@ export default async function SegmentsPage() {
                   <Badge variant={seg.active ? "success" : "muted"}>{seg.active ? "Ativo" : "Inativo"}</Badge>
                 </div>
                 <CardDescription>{seg.description}</CardDescription>
+                {(() => {
+                  const free = freeBySegment.get(seg.id) ?? 0;
+                  return free > 0 ? (
+                    <p className="text-xs text-muted-foreground">{free} horário(s) livre(s) para as famílias.</p>
+                  ) : (
+                    <p className="text-xs font-medium text-destructive">
+                      Nenhum horário livre: as famílias não conseguem agendar neste segmento. Libere horários em Disponibilidade.
+                    </p>
+                  );
+                })()}
               </CardHeader>
               <CardContent className="space-y-5">
                 <ActionForm action={setSegmentPsychologistsAction} className="space-y-3">
@@ -74,7 +90,7 @@ export default async function SegmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Novo segmento</CardTitle>
-          <CardDescription>Use apenas se a escola criar um novo segmento além dos quatro iniciais.</CardDescription>
+          <CardDescription>Use apenas se a escola criar um novo segmento além dos três iniciais.</CardDescription>
         </CardHeader>
         <CardContent>
           <ActionForm action={createSegmentAction} resetOnSuccess className="grid gap-3 sm:grid-cols-4 sm:items-end">

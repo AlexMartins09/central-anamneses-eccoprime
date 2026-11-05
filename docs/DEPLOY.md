@@ -29,7 +29,7 @@ Tudo que o sistema grava fica no **PostgreSQL gerenciado do Render** — nada im
 Uma migration nunca deve ser editada depois de publicada — crie uma nova com `npm run db:migrate` localmente.
 
 ## 4. Primeiro acesso (administrador)
-Não precisa de Shell. A cada inicialização o `npm start` roda o seed, que cria os 4 segmentos, as configurações padrão e o administrador definido em `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME` e `SEED_ADMIN_PASSWORD` (preencha no Render antes do primeiro deploy).
+Não precisa de Shell. A cada inicialização o `npm start` roda o seed, que cria os 3 segmentos (Educação Infantil, Ensino Fundamental 1 e Ensino Fundamental 2 e Médio), as configurações padrão e o administrador definido em `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME` e `SEED_ADMIN_PASSWORD` (preencha no Render antes do primeiro deploy).
 - Se `SEED_ADMIN_PASSWORD` ficar vazia, uma senha aleatória é **impressa uma única vez** nos *Logs* do serviço — copie e troque em *Minha conta*.
 - O seed é idempotente: se o administrador já existir, nada é alterado (a senha nunca é sobrescrita).
 - Depois do primeiro login, apague `SEED_ADMIN_PASSWORD` das variáveis do Render.
